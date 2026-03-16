@@ -175,14 +175,11 @@ local ResBox = Tabs.Misc:AddLeftGroupbox('Resolution')
 ResBox:AddToggle('ResStretch', { Text = 'Resolution Stretcher', Default = false })
 ResBox:AddSlider('ResFactor', { Text = 'Stretch Factor', Default = 0.65, Min = 0.1, Max = 2.0, Rounding = 2 })
 
----------------------------------------------------------------------------------------------------
--- Particle Aura 追加
----------------------------------------------------------------------------------------------------
 local AuraBox = Tabs.Misc:AddLeftGroupbox('Particle Aura')
 AuraBox:AddToggle('EnableAura', { Text = 'Enable Aura', Default = false })
 AuraBox:AddDropdown('AuraType', {
     Values = { 'starlight', 'heavenly', 'ribbon', 'sakura', 'angel', 'wind', 'flow', 'star' },
-    Default = 5, -- 'angel' is index 5
+    Default = 5,
     Multi = true,
     Text = 'Aura Types'
 })
@@ -230,14 +227,12 @@ local function applyEffects(char)
     local colorSeq = ColorSequence.new(baseColor)
     local selectedAuras = Options.AuraType.Value
 
-    -- Single selection fallback
     if type(selectedAuras) == "string" then
         selectedAuras = {[selectedAuras] = true}
     end
 
     for auraName, isSelected in pairs(selectedAuras) do
         if isSelected and AuraAssets[auraName] then
-            -- Download to Cache
             if not AuraCache[auraName] then
                 local success, result = pcall(function()
                     return game:GetObjects(AuraAssets[auraName])[1]
@@ -297,7 +292,6 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     task.wait(1)
     if Toggles.EnableAura.Value then applyEffects(char) end
 end)
----------------------------------------------------------------------------------------------------
 
 local SkyboxBox = Tabs.Misc:AddRightGroupbox('Skybox')
 local SkyConfigs = {
@@ -396,6 +390,62 @@ SkinBox:AddToggle('SkinToggle', {
     Text = 'Enable Skin',
     Default = false,
 })
+
+---------------------------------------------------------------------------------------------------
+-- Void Spam 追加
+---------------------------------------------------------------------------------------------------
+local VoidBox = Tabs.Misc:AddRightGroupbox('Void Spam')
+VoidBox:AddToggle('EnableVoidSpam', { 
+    Text = 'Enable Void Spam', 
+    Default = false 
+}):AddKeyPicker('VoidSpamKey', { 
+    Default = 'None', 
+    SyncToggleState = true, 
+    Mode = 'Toggle', 
+    Text = 'Void Spam Key', 
+    NoUI = false 
+})
+
+VoidBox:AddSlider('VoidRange', { 
+    Text = 'Void Range', 
+    Default = 500000, 
+    Min = 1000, 
+    Max = 99990000, 
+    Rounding = 0 
+})
+
+local voidSpamConnection = nil
+local voidRng = Random.new()
+
+Toggles.EnableVoidSpam:OnChanged(function()
+    if Toggles.EnableVoidSpam.Value then
+        if not voidSpamConnection then
+            voidSpamConnection = RunService.Heartbeat:Connect(function()
+                local char = LocalPlayer.Character
+                local root = char and char:FindFirstChild("HumanoidRootPart")
+                
+                if root then
+                    root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                    root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+                    
+                    local vRange = Options.VoidRange.Value
+                    local randomPos = CFrame.new(
+                        voidRng:NextNumber(-vRange, vRange), 
+                        voidRng:NextNumber(vRange * 0.8, vRange), 
+                        voidRng:NextNumber(-vRange, vRange)
+                    )
+                    root.CFrame = randomPos
+                end
+            end)
+        end
+    else
+        if voidSpamConnection then
+            voidSpamConnection:Disconnect()
+            voidSpamConnection = nil
+        end
+    end
+end)
+---------------------------------------------------------------------------------------------------
 
 local MenuTabbox = Tabs.Settings:AddLeftTabbox()
 local MenuTab = MenuTabbox:AddTab('Menu')
@@ -1100,7 +1150,6 @@ local screenName = "FinalCrosshair_Universal"
 if CoreGui:FindFirstChild(screenName) then CoreGui:FindFirstChild(screenName):Destroy() end
 local CH_ScreenGui = Instance.new("ScreenGui", CoreGui); CH_ScreenGui.Name = screenName; CH_ScreenGui.IgnoreGuiInset = true; CH_ScreenGui.ResetOnSpawn = false; CH_ScreenGui.DisplayOrder = 2147483647; CH_ScreenGui.Enabled = false
 
--- 完全に RichText を無効化し、1つのテキストとして扱います
 local CH_TextLabel = Instance.new("TextLabel", CH_ScreenGui)
 CH_TextLabel.Name = "CrosshairText"
 CH_TextLabel.BackgroundTransparency = 1
@@ -1628,6 +1677,7 @@ Library:OnUnload(function()
     local atmo = Lighting:FindFirstChild("PhantomAtmosphere")
     if atmo then atmo:Destroy() end
     
+    if voidSpamConnection then voidSpamConnection:Disconnect() end
     if skinConnection then skinConnection:Disconnect() end
     UserInputService.MouseIconEnabled = true
 end)
